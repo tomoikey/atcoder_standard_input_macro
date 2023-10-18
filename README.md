@@ -5,7 +5,7 @@ This macro has been instrumental in reading standard input in Rust, offering sup
 I trust it will enhance your competitive programming experience and make it even more **enjoyable**!🔥
 
 ---
-### How to use
+### 🥺 How to use 🥺
 ```rust
 fn main() {
     include_input! {
@@ -23,7 +23,7 @@ fn main() {
 }
 ```
 
-### Input
+### 😎 Input 😎
 ```shell
 1
 hoge1
@@ -37,7 +37,7 @@ hoge5 5
 3
 ```
 
-### Output
+### 😀 Output 😀
 ```shell
 ["hoge1"]
 4
