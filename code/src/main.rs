@@ -4,7 +4,8 @@ fn main() {
     include_input! {
         n: u8,
         strings: [String; n],
-        favorite_food: String
+        favorite_food: (String, u32)
     };
-    println!("{}\n{:?}\n{}", n, strings, favorite_food);
+
+    println!("{}\n{:?}\n{:?}\n", n, strings, favorite_food);
 }

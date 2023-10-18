@@ -1,4 +1,5 @@
 use proc_macro2::{Ident, TokenStream};
+use quote::__private::ext::RepToTokensExt;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
@@ -51,6 +52,20 @@ pub fn expand_input(input: MyPunctuated) -> TokenStream {
                         #ident.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
                     }
                     let #ident = #ident;
+                }
+            }
+            Type::Tuple(type_tuple) => {
+                let token_streams = type_tuple.elems.iter().enumerate().map(|(i, t)| {
+                    quote! {
+                        values[#i].parse::<#t>().unwrap()
+                    }
+                }).collect::<Vec<_>>();
+                quote! {
+                    let mut #ident = String::new();
+                    ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
+                    let trim_string = #ident.trim().to_string();
+                    let values = trim_string.split(' ').collect::<Vec<_>>();
+                    let #ident = (#(#token_streams),*);
                 }
             }
             _ => {
