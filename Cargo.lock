@@ -6,11 +6,11 @@ version = 3
 name = "code"
 version = "0.1.0"
 dependencies = [
- "play_ground",
+ "macros",
 ]
 
 [[package]]
-name = "play_ground"
+name = "macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",

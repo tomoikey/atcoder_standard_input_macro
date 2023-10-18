@@ -1,4 +1,4 @@
-use play_ground::include_input;
+use macros::include_input;
 
 fn main() {
     include_input! {
