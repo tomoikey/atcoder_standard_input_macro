@@ -16,7 +16,6 @@ impl Parse for MyPunctuated {
     }
 }
 
-#[warn(dead_code)]
 pub struct NameAndType {
     name: Ident,
     _colon: Token![:],
