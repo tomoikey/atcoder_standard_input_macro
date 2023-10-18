@@ -1,4 +1,4 @@
-use crate::input_panctuated::MyPunctuated;
+use crate::input_punctuated::MyPunctuated;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use std::ops::Deref;
