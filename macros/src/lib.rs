@@ -1,6 +1,9 @@
 mod input;
+mod input_panctuated;
+mod name_and_type;
 
-use crate::input::{expand_input, MyPunctuated};
+use crate::input::expand_input;
+use input_panctuated::MyPunctuated;
 use proc_macro::TokenStream;
 use syn::parse_macro_input;
 

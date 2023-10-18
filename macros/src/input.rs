@@ -1,35 +1,8 @@
+use crate::input_panctuated::MyPunctuated;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use std::ops::Deref;
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::{Token, Type, TypeArray, TypeTuple};
-
-pub struct MyPunctuated {
-    value: Punctuated<NameAndType, Token![,]>,
-}
-
-impl Parse for MyPunctuated {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let value = Punctuated::parse_terminated(input)?;
-        Ok(MyPunctuated { value })
-    }
-}
-
-pub struct NameAndType {
-    name: Ident,
-    _colon: Token![:],
-    ty: Type,
-}
-
-impl Parse for NameAndType {
-    fn parse(input: ParseStream) -> syn::Result<Self> {
-        let name = input.parse()?;
-        let _colon = input.parse()?;
-        let ty = input.parse()?;
-        Ok(NameAndType { name, _colon, ty })
-    }
-}
+use syn::{Type, TypeArray, TypeTuple};
 
 fn expand_tuple(ident: Ident, type_tuple: TypeTuple) -> TokenStream {
     let token_streams = type_tuple
@@ -93,10 +66,10 @@ where
 }
 
 pub fn expand_input(input: MyPunctuated) -> TokenStream {
-    let fields = input.value;
+    let fields = input.deref();
     let fields = fields
         .iter()
-        .map(|field| (field.name.clone(), field.ty.clone()))
+        .map(|field| (field.name(), field.ty()))
         .collect::<Vec<_>>();
     let token_streams = fields
         .into_iter()
