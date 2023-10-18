@@ -23,6 +23,20 @@ fn main() {
 }
 ```
 
+### Input
+```shell
+1
+hoge1
+4
+hoge2 2
+hoge3 3
+hoge4 4
+hoge5 5
+1
+2
+3
+```
+
 ### Output
 ```shell
 ["hoge1"]
