@@ -42,113 +42,71 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> TokenStream {
     let array_length = type_array.len;
     let child_depth = depth + 1;
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
-    let ident_child_depth = Ident::new(&format!("{}_{}", ident, depth + 1), ident.span());
+    let ident_child_depth = Ident::new(&format!("{}_{}", ident, child_depth), ident.span());
 
     match array_element_type.deref() {
-        Type::Array(type_array) => match depth {
-            0 => {
-                let array_token_stream =
-                    expand_array(ident.clone(), type_array.clone(), child_depth);
-                quote! {
-                    let mut #ident = Vec::new();
-                    for _ in 0..#array_length {
-                        #array_token_stream
-                        #ident.push(#ident_child_depth)
-                    }
-                    let #ident = #ident;
+        Type::Array(type_array) if depth == 0 => {
+            let array_token_stream = expand_array(ident.clone(), type_array.clone(), child_depth);
+            quote! {
+                let mut #ident = Vec::new();
+                for _ in 0..#array_length {
+                    #array_token_stream
+                    #ident.push(#ident_child_depth)
+                }
+                let #ident = #ident;
+            }
+        }
+        Type::Array(type_array) => {
+            let array_token_stream = expand_array(ident.clone(), type_array.clone(), child_depth);
+            quote! {
+                let mut #ident_depth = Vec::new();
+                for _ in 0..#array_length {
+                    #array_token_stream
+                    #ident_depth.push(#ident_child_depth);
                 }
             }
-            1 => {
-                let array_token_stream =
-                    expand_array(ident.clone(), type_array.clone(), child_depth);
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                        #array_token_stream
-                        #ident_depth.push(#ident_child_depth);
-                    }
+        }
+        Type::Tuple(type_tuple) if depth == 0 => {
+            let tuple_token_stream = expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
+            quote! {
+                let mut #ident = Vec::new();
+                for _ in 0..#array_length {
+                    #tuple_token_stream
+                    #ident.push(#ident #child_depth);
                 }
             }
-            _ => {
-                let array_token_stream =
-                    expand_array(ident.clone(), type_array.clone(), child_depth);
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                        #array_token_stream
-                        #ident_depth.push(#ident_child_depth);
-                    }
+        }
+        Type::Tuple(type_tuple) => {
+            let tuple_token_stream = expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
+            quote! {
+                let mut #ident_depth = Vec::new();
+                for _ in 0..#array_length {
+                    #tuple_token_stream
+                    #ident_depth.push(#ident_child_depth);
                 }
             }
-        },
-        Type::Tuple(type_tuple) => match depth {
-            0 => {
-                let tuple_token_stream =
-                    expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
-                quote! {
-                    let mut #ident = Vec::new();
-                    for _ in 0..#array_length {
-                        #tuple_token_stream
-                        #ident.push(#ident #child_depth);
-                    }
+        }
+        _ if depth == 0 => {
+            quote! {
+                let mut #ident = Vec::new();
+                for _ in 0..#array_length {
+                    let mut input = String::new();
+                    ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
+                    #ident.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
+                }
+                let mut #ident = #ident;
+            }
+        }
+        _ => {
+            quote! {
+                let mut #ident_depth = Vec::new();
+                for _ in 0..#array_length {
+                     let mut input = String::new();
+                     ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
+                     #ident_depth.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
                 }
             }
-            1 => {
-                let tuple_token_stream =
-                    expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                        #tuple_token_stream
-                        #ident_depth.push(#ident_child_depth);
-                    }
-                }
-            }
-            _ => {
-                let tuple_token_stream =
-                    expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                        #tuple_token_stream
-                        #ident_depth.push(#ident_child_depth);
-                    }
-                }
-            }
-        },
-        _ => match depth {
-            0 => {
-                quote! {
-                    let mut #ident = Vec::new();
-                    for _ in 0..#array_length {
-                        let mut input = String::new();
-                        ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
-                        #ident.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
-                    }
-                    let mut #ident = #ident;
-                }
-            }
-            1 => {
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                         let mut input = String::new();
-                         ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
-                         #ident_depth.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
-                    }
-                }
-            }
-            _ => {
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                         let mut input = String::new();
-                         ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
-                         #ident_depth.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
-                    }
-                }
-            }
-        },
+        }
     }
 }
 
