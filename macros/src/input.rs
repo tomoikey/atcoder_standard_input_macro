@@ -15,24 +15,22 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
-    match depth {
-        0 => {
-            quote! {
-                let mut #ident = String::new();
-                ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
-                let trimed_string = #ident.trim().to_string();
-                let split_input = trimed_string.split(' ').collect::<Vec<_>>();
-                let #ident = (#(#token_streams),*);
-            }
+    let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
+    if depth == 0 {
+        quote! {
+            let mut #ident = String::new();
+            ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
+            let trimed_string = #ident.trim().to_string();
+            let split_input = trimed_string.split(' ').collect::<Vec<_>>();
+            let #ident = (#(#token_streams),*);
         }
-        _ => {
-            quote! {
-                let mut input = String::new();
-                ::std::io::stdin().read_line(&mut input).expect("failed to read.");
-                let trimed_string = input.trim().to_string();
-                let split_input = trimed_string.split(' ').collect::<Vec<_>>();
-                let #ident = (#(#token_streams),*);
-            }
+    } else {
+        quote! {
+            let mut input = String::new();
+            ::std::io::stdin().read_line(&mut input).expect("failed to read.");
+            let trimed_string = input.trim().to_string();
+            let split_input = trimed_string.split(' ').collect::<Vec<_>>();
+            let #ident_depth = (#(#token_streams),*);
         }
     }
 }
