@@ -18,7 +18,7 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
         })
         .collect::<Vec<_>>();
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
-    if depth == 0 {
+    if depth == 1 {
         quote! {
             let mut #ident = String::new();
             ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
@@ -37,67 +37,72 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
     }
 }
 
-fn expand_array(
-    ident: Ident,
-    type_array: TypeArray,
-    depth: i8,
-    is_parent_iter: bool,
-) -> anyhow::Result<TokenStream> {
-    if depth >= 3 {
-        bail!("Array's maximum depth is 2.")
-    }
-
-    let array_element_type = type_array.elem;
-    let array_length = type_array.len;
-    let child_depth = depth + 1;
+fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
+    let (array_element_type, array_length) = (type_array.elem, type_array.len);
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
-    let ident_child_depth = Ident::new(&format!("{}_{}", ident, child_depth), ident.span());
-
     let token_stream = match array_element_type.deref() {
-        Type::Array(type_array) => {
-            let type_array = type_array.clone();
-            let (child_array_element_type, child_array_length) = (type_array.elem, type_array.len);
-            quote! {
-                let mut #ident = Vec::new();
-                for _ in 0..#array_length {
-                    let mut input = String::new();
-                    ::std::io::stdin().read_line(&mut input).expect("Failed to read array.");
-                    let trimed_string = input.trim().to_string();
-                    let input = trimed_string
-                        .split(' ')
-                        .map(|n| n.parse::<#child_array_element_type>().expect("Failed to cast."))
-                        .collect::<Vec<_>>();
-                    let input: [#child_array_element_type; #child_array_length] =
-                        input.try_into().expect("Filed to cast to an array from Vec.");
-                    #ident.push(input);
+        Type::Array(_) | Type::Tuple(_) => {
+            let token_stream =
+                expand_several_type(ident.clone(), array_element_type.deref(), depth)?;
+            if depth == 1 {
+                quote! {
+                    let mut #ident = Vec::new();
+                    for _ in 0..#array_length {
+                        #token_stream
+                    }
+                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("");
                 }
-                let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Filed to cast to an array from Vec.");
-            }
-        }
-        Type::Tuple(type_tuple) => {
-            let tuple_token_stream = expand_tuple(ident.clone(), type_tuple.clone(), child_depth);
-            quote! {
-                let mut #ident = Vec::new();
-                for _ in 0..#array_length {
-                    #tuple_token_stream
-                    #ident.push(#ident_child_depth);
+            } else {
+                quote! {
+                    let mut #ident_depth = Vec::new();
+                    for _ in 0..#array_length {
+                        #token_stream
+                    }
+                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("");
+                    #ident.push(#ident_depth);
                 }
-                let #ident: [#array_element_type; #array_length] =
-                    #ident.try_into().expect("Filed to cast to an array from Vec.");
             }
         }
         _ => {
-            quote! {
-                let mut #ident = Vec::new();
-                for _ in 0..#array_length {
-                    let mut input = String::new();
-                    ::std::io::stdin().read_line(&mut input).expect("failed to read array.");
-                    #ident.push(input.trim().to_string().parse::<#array_element_type>().unwrap());
+            let input_token_stream = quote! {
+                let mut input = String::new();
+                ::std::io::stdin().read_line(&mut input).expect("Failed to read");
+                let input = input
+                    .trim()
+                    .split(" ")
+                    .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
+                    .collect::<Vec<_>>();
+            };
+            if depth == 1 {
+                quote! {
+                    #input_token_stream
+                    let #ident: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
                 }
-                let #ident: [#array_element_type; #array_length] =
-                    #ident.try_into().expect("Filed to cast to an array from Vec.");
+            } else {
+                quote! {
+                    #input_token_stream
+                    let input: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
+                    #ident.push(input);
+                }
             }
         }
+    };
+    Ok(token_stream)
+}
+
+fn expand_several_type(ident: Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
+    if depth >= 2 {
+        bail!("Array's maximum depth is 2.")
+    }
+
+    let token_stream = match ty {
+        Type::Array(type_array) => expand_array(ident, type_array.clone(), depth + 1)?,
+        Type::Tuple(type_tuple) => expand_tuple(ident, type_tuple.clone(), depth + 1),
+        _ => quote! {
+            let mut #ident = String::new();
+            ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
+            let #ident = #ident.trim().to_string().parse::<#ty>().unwrap();
+        },
     };
     Ok(token_stream)
 }
@@ -110,15 +115,7 @@ pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
         .collect::<Vec<_>>();
     let token_streams = fields
         .into_iter()
-        .map(|(ident, ty)| match ty {
-            Type::Array(type_array) => expand_array(ident.clone(), type_array.clone(), 1, false),
-            Type::Tuple(type_tuple) => Ok(expand_tuple(ident.clone(), type_tuple.clone(), 1)),
-            _ => Ok(quote! {
-                let mut #ident = String::new();
-                ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
-                let #ident = #ident.trim().to_string().parse::<#ty>().unwrap();
-            }),
-        })
+        .map(|(ident, ty)| expand_several_type(ident.clone(), ty, 0))
         .collect::<Vec<_>>();
 
     // Vec<Option<TokenStream>> => Vec<TokenStream> に変換する
