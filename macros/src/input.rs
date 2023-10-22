@@ -13,26 +13,36 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
         .enumerate()
         .map(|(i, t)| {
             quote! {
-                split_input[#i].parse::<#t>().unwrap()
+                Box::new(split_input[#i].parse::<#t>().unwrap())
             }
         })
         .collect::<Vec<_>>();
-    let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
+    let downcast_token_streams = type_tuple
+        .elems
+        .iter()
+        .enumerate()
+        .map(|(i, ty)| {
+            quote! {
+                any[#i].downcast_ref::<#ty>().unwrap().clone()
+            }
+        })
+        .collect::<Vec<_>>();
+    let token_stream = quote! {
+        let mut input = String::new();
+        ::std::io::stdin().read_line(&mut input).expect("failed to read.");
+        let trimed_string = input.trim().to_string();
+        let split_input = trimed_string.split(' ').collect::<Vec<_>>();
+        let any: Vec<Box<dyn std::any::Any>> = vec![#(#token_streams),*];
+    };
     if depth == 1 {
         quote! {
-            let mut #ident = String::new();
-            ::std::io::stdin().read_line(&mut #ident).expect("failed to read.");
-            let trimed_string = #ident.trim().to_string();
-            let split_input = trimed_string.split(' ').collect::<Vec<_>>();
-            let #ident = (#(#token_streams),*);
+            #token_stream
+            let #ident = (#(#downcast_token_streams),*);
         }
     } else {
         quote! {
-            let mut input = String::new();
-            ::std::io::stdin().read_line(&mut input).expect("failed to read.");
-            let trimed_string = input.trim().to_string();
-            let split_input = trimed_string.split(' ').collect::<Vec<_>>();
-            let #ident_depth = (#(#token_streams),*);
+            #token_stream
+            #ident.push((#(#downcast_token_streams),*));
         }
     }
 }
@@ -115,6 +125,7 @@ pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
         .collect::<Vec<_>>();
     let token_streams = fields
         .into_iter()
+        .rev()
         .map(|(ident, ty)| expand_several_type(ident.clone(), ty, 0))
         .collect::<Vec<_>>();
 
