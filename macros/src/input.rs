@@ -45,17 +45,17 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
 fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
     let (array_element_type, array_length) = (type_array.elem, type_array.len);
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
-    let token_stream = match array_element_type.deref() {
+    match array_element_type.deref() {
         Type::Array(_) | Type::Tuple(_) => {
             let token_stream =
                 expand_several_type(ident.clone(), array_element_type.deref(), depth + 1)?;
-            if depth == 0 {
+            let result = if depth == 0 {
                 quote! {
                     let mut #ident = Vec::new();
                     for _ in 0..#array_length {
                         #token_stream
                     }
-                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("");
+                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Failed to cast to array from Vec");
                 }
             } else {
                 quote! {
@@ -63,12 +63,13 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Resul
                     for _ in 0..#array_length {
                         #token_stream
                     }
-                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("");
+                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("Failed to cast to array from Vec");
                     #ident.push(#ident_depth);
                 }
-            }
+            };
+            Ok(result)
         }
-        _ => {
+        Type::Path(_) => {
             let input_token_stream = quote! {
                 let mut input = String::new();
                 ::std::io::stdin().read_line(&mut input).expect("Failed to read");
@@ -78,7 +79,7 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Resul
                     .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
                     .collect::<Vec<_>>();
             };
-            if depth == 0 {
+            let result = if depth == 0 {
                 quote! {
                     #input_token_stream
                     let #ident: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
@@ -89,31 +90,33 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Resul
                     let input: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
                     #ident.push(input);
                 }
-            }
+            };
+            Ok(result)
         }
-    };
-    Ok(token_stream)
+        _ => {
+            bail!("Unsupported type")
+        }
+    }
 }
 
 fn expand_several_type(ident: Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
     if depth >= 2 {
         bail!("Array's maximum depth reached")
     }
-    let token_stream = match ty {
-        Type::Array(type_array) => expand_array(ident, type_array.clone(), depth)?,
-        Type::Tuple(type_tuple) => expand_tuple(ident, type_tuple.clone(), depth),
-        _ => quote! {
+    match ty {
+        Type::Array(type_array) => expand_array(ident, type_array.clone(), depth),
+        Type::Tuple(type_tuple) => Ok(expand_tuple(ident, type_tuple.clone(), depth)),
+        Type::Path(_) => Ok(quote! {
             let mut #ident = String::new();
             ::std::io::stdin().read_line(&mut #ident).expect("failed to read");
             let #ident = #ident.trim().to_string().parse::<#ty>().unwrap();
-        },
-    };
-    Ok(token_stream)
+        }),
+        _ => bail!("Unsupported type"),
+    }
 }
 
 pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
     let token_streams = input
-        .deref()
         .iter()
         .map(|field| (field.name(), field.ty()))
         .rev()
@@ -123,11 +126,7 @@ pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
     // Vec<Option<TokenStream>> => Vec<TokenStream> に変換する
     let mut result = VecDeque::new();
     for token_stream_result in token_streams {
-        if let Ok(token_stream) = token_stream_result {
-            result.push_front(token_stream);
-        } else {
-            bail!("token_streams has at least 1 Err");
-        }
+        result.push_front(token_stream_result?);
     }
     let result = result.into_iter().collect::<Vec<_>>();
     Ok(quote! {
