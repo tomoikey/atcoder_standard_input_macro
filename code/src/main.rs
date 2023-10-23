@@ -11,7 +11,7 @@ fn main() {
     };
 
     println!(
-        "{:?} {:?} {:?} {:?} {:?} {:?}",
+        "\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}",
         hello, one, array, array_array, array_tuple1, array_tuple2
     );
 }

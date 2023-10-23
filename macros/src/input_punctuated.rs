@@ -6,12 +6,6 @@ use syn::Token;
 
 pub struct MyPunctuated(Punctuated<NameAndType, Token![,]>);
 
-impl MyPunctuated {
-    pub fn new(value: Punctuated<NameAndType, Token![,]>) -> Self {
-        MyPunctuated(value)
-    }
-}
-
 impl Deref for MyPunctuated {
     type Target = Punctuated<NameAndType, Token![,]>;
 
