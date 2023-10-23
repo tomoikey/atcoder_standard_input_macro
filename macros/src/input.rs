@@ -70,24 +70,29 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Resul
             Ok(result)
         }
         Type::Path(_) => {
-            let input_token_stream = quote! {
-                let mut input = String::new();
-                ::std::io::stdin().read_line(&mut input).expect("Failed to read");
-                let input = input
-                    .trim()
-                    .split(" ")
-                    .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
-                    .collect::<Vec<_>>();
-            };
             let result = if depth == 0 {
                 quote! {
-                    #input_token_stream
-                    let #ident: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
+                    let mut #ident = String::new();
+                    ::std::io::stdin().read_line(&mut #ident).expect("Failed to read");
+                    let #ident: [#array_element_type; #array_length] = #ident
+                        .trim()
+                        .split(" ")
+                        .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .expect("Failed to cast to an array from Vec");
                 }
             } else {
                 quote! {
-                    #input_token_stream
-                    let input: [#array_element_type; #array_length] = input.try_into().expect("Failed to cast to an array from Vec");
+                    let mut input = String::new();
+                    ::std::io::stdin().read_line(&mut input).expect("Failed to read");
+                    let input: [#array_element_type; #array_length] = input
+                        .trim()
+                        .split(" ")
+                        .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
+                        .collect::<Vec<_>>()
+                        .try_into()
+                        .expect("Failed to cast to an array from Vec");
                     #ident.push(input);
                 }
             };
