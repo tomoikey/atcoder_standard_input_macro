@@ -5,42 +5,38 @@ use quote::quote;
 use std::collections::VecDeque;
 use syn::{Type, TypeArray, TypeTuple};
 
+/// タプルとして展開する
 fn expand_tuple(ident: &Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
-    let (tuple_element_token_streams, downcast_token_streams): (Vec<_>, Vec<_>) = type_tuple
+    let token_streams = type_tuple
         .elems
         .iter()
         .enumerate()
         .map(|(i, ty)| {
-            (
-                quote! {
-                    Box::new(split_input[#i].parse::<#ty>().unwrap())
-                },
-                quote! {
-                    any[#i].downcast_ref::<#ty>().unwrap().clone()
-                },
-            )
+            quote! {
+                split_input[#i].parse::<#ty>().unwrap()
+            }
         })
-        .unzip();
+        .collect::<Vec<_>>();
     let token_stream = quote! {
         let mut input = String::new();
         ::std::io::stdin().read_line(&mut input).expect("failed to read");
         let trimed_string = input.trim().to_string();
         let split_input = trimed_string.split(' ').collect::<Vec<_>>();
-        let any: Vec<Box<dyn std::any::Any>> = vec![#(#tuple_element_token_streams),*];
     };
     if depth == 0 {
         quote! {
             #token_stream
-            let #ident = (#(#downcast_token_streams),*);
+            let #ident = (#(#token_streams),*);
         }
     } else {
         quote! {
             #token_stream
-            #ident.push((#(#downcast_token_streams),*));
+            #ident.push((#(#token_streams),*));
         }
     }
 }
 
+/// 配列として展開する
 fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
     let (array_element_type, array_length) = (type_array.elem, type_array.len);
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
@@ -53,7 +49,7 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
                     for _ in 0..#array_length {
                         #token_stream
                     }
-                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Failed to cast to array from Vec");
+                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Failed to cast to an array from Vec");
                 }
             } else {
                 quote! {
@@ -61,7 +57,7 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
                     for _ in 0..#array_length {
                         #token_stream
                     }
-                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("Failed to cast to array from Vec");
+                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("Failed to cast to an array from Vec");
                     #ident.push(#ident_depth);
                 }
             };
