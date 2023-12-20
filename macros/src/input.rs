@@ -2,7 +2,6 @@ use crate::input_punctuated::MyPunctuated;
 use anyhow::bail;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
-use std::collections::VecDeque;
 use syn::{Type, TypeArray, TypeTuple};
 
 /// タプルとして展開する
@@ -119,16 +118,13 @@ pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
     let token_streams = input
         .iter()
         .map(|field| (field.name(), field.ty()))
-        .rev()
         .map(|(ident, ty)| expand_several_type(ident, ty, 0))
         .collect::<Vec<_>>();
-
     // Vec<Option<TokenStream>> => Vec<TokenStream> に変換する
-    let mut result = VecDeque::new();
+    let mut result = Vec::new();
     for token_stream_result in token_streams {
-        result.push_front(token_stream_result?);
+        result.push(token_stream_result?);
     }
-    let result = result.into_iter().collect::<Vec<_>>();
     Ok(quote! {
         #(#result)*
     })
