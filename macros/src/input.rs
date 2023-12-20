@@ -4,6 +4,24 @@ use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use syn::{Type, TypeArray, TypeTuple};
 
+/// Typeに合わせて展開する
+fn expand_several_type(ident: &Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
+    // サポートするのは2次元までにする
+    if depth >= 3 {
+        bail!("Array's maximum depth reached")
+    }
+    match ty {
+        Type::Array(type_array) => expand_array(ident, type_array.clone(), depth),
+        Type::Tuple(type_tuple) => Ok(expand_tuple(ident, type_tuple.clone(), depth)),
+        Type::Path(_) => Ok(quote! {
+            let mut #ident = String::new();
+            ::std::io::stdin().read_line(&mut #ident).expect("failed to read");
+            let #ident = #ident.trim().to_string().parse::<#ty>().unwrap();
+        }),
+        _ => bail!("Unsupported type"),
+    }
+}
+
 /// タプルとして展開する
 fn expand_tuple(ident: &Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
     let token_streams = type_tuple
@@ -22,7 +40,7 @@ fn expand_tuple(ident: &Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream 
         let trimed_string = input.trim().to_string();
         let split_input = trimed_string.split(' ').collect::<Vec<_>>();
     };
-    if depth == 0 {
+    if depth == 1 {
         quote! {
             #token_stream
             let #ident = (#(#token_streams),*);
@@ -58,7 +76,7 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
                 .try_into()
                 .expect("Failed to cast to an array from Vec");
             };
-            let result = if depth == 0 {
+            let result = if depth == 1 {
                 quote! {
                     let mut #ident = String::new();
                     ::std::io::stdin().read_line(&mut #ident).expect("Failed to read");
@@ -80,28 +98,11 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
     }
 }
 
-fn expand_several_type(ident: &Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
-    // サポートするのは2次元までにする
-    if depth >= 2 {
-        bail!("Array's maximum depth reached")
-    }
-    match ty {
-        Type::Array(type_array) => expand_array(ident, type_array.clone(), depth),
-        Type::Tuple(type_tuple) => Ok(expand_tuple(ident, type_tuple.clone(), depth)),
-        Type::Path(_) => Ok(quote! {
-            let mut #ident = String::new();
-            ::std::io::stdin().read_line(&mut #ident).expect("failed to read");
-            let #ident = #ident.trim().to_string().parse::<#ty>().unwrap();
-        }),
-        _ => bail!("Unsupported type"),
-    }
-}
-
 pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
     let token_streams = input
         .iter()
         .map(|field| (field.name(), field.ty()))
-        .map(|(ident, ty)| expand_several_type(ident, ty, 0))
+        .map(|(ident, ty)| expand_several_type(ident, ty, 1))
         .collect::<Vec<_>>();
     // Vec<Option<TokenStream>> => Vec<TokenStream> に変換する
     let mut result = Vec::new();
