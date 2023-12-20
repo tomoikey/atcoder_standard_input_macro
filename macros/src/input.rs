@@ -8,7 +8,7 @@ use syn::{Type, TypeArray, TypeTuple};
 fn expand_several_type(ident: &Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
     // サポートするのは2次元までにする
     if depth >= 3 {
-        bail!("Array's maximum depth reached")
+        bail!("Maximum depth reached");
     }
     match ty {
         Type::Array(type_array) => expand_array(ident, type_array.clone(), depth),
@@ -93,7 +93,7 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
             Ok(result)
         }
         _ => {
-            bail!("Unsupported type")
+            bail!("Unsupported type");
         }
     }
 }
