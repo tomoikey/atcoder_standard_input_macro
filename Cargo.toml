@@ -1,5 +1,11 @@
+[package]
+version = "0.0.0"
+name = "atcoder"
+edition = "2021"
+resolver = "2"
+
 [workspace]
-members = [
-    "code",
-    "macros"
-]
+members = ["macros"]
+
+[dependencies]
+macros = { path = "macros" }

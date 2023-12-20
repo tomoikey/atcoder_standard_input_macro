@@ -8,7 +8,7 @@ fn main() {
         array_array: [[i32; 3]; 3],
         array_tuple1: [(u16, String); 2],
         array_tuple2: [(u16, String, usize, usize); 2],
-    };
+    }
 
     println!(
         "\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}\n{:?}",

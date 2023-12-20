@@ -3,10 +3,9 @@ use anyhow::bail;
 use proc_macro2::{Ident, TokenStream};
 use quote::quote;
 use std::collections::VecDeque;
-use std::ops::Deref;
 use syn::{Type, TypeArray, TypeTuple};
 
-fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
+fn expand_tuple(ident: &Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
     let (tuple_element_token_streams, downcast_token_streams): (Vec<_>, Vec<_>) = type_tuple
         .elems
         .iter()
@@ -42,13 +41,12 @@ fn expand_tuple(ident: Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream {
     }
 }
 
-fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
+fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
     let (array_element_type, array_length) = (type_array.elem, type_array.len);
     let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
-    match array_element_type.deref() {
+    match *array_element_type {
         Type::Array(_) | Type::Tuple(_) => {
-            let token_stream =
-                expand_several_type(ident.clone(), array_element_type.deref(), depth + 1)?;
+            let token_stream = expand_several_type(ident, &array_element_type, depth + 1)?;
             let result = if depth == 0 {
                 quote! {
                     let mut #ident = Vec::new();
@@ -104,7 +102,8 @@ fn expand_array(ident: Ident, type_array: TypeArray, depth: i8) -> anyhow::Resul
     }
 }
 
-fn expand_several_type(ident: Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
+fn expand_several_type(ident: &Ident, ty: &Type, depth: i8) -> anyhow::Result<TokenStream> {
+    // サポートするのは2次元までにする
     if depth >= 2 {
         bail!("Array's maximum depth reached")
     }
@@ -125,7 +124,7 @@ pub fn expand_input(input: MyPunctuated) -> anyhow::Result<TokenStream> {
         .iter()
         .map(|field| (field.name(), field.ty()))
         .rev()
-        .map(|(ident, ty)| expand_several_type(ident.clone(), ty, 0))
+        .map(|(ident, ty)| expand_several_type(ident, ty, 0))
         .collect::<Vec<_>>();
 
     // Vec<Option<TokenStream>> => Vec<TokenStream> に変換する
