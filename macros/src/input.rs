@@ -38,29 +38,16 @@ fn expand_tuple(ident: &Ident, type_tuple: TypeTuple, depth: i8) -> TokenStream 
 /// 配列として展開する
 fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Result<TokenStream> {
     let (array_element_type, array_length) = (type_array.elem, type_array.len);
-    let ident_depth = Ident::new(&format!("{}_{}", ident, depth), ident.span());
     match *array_element_type {
         Type::Array(_) | Type::Tuple(_) => {
             let token_stream = expand_several_type(ident, &array_element_type, depth + 1)?;
-            let result = if depth == 0 {
-                quote! {
-                    let mut #ident = Vec::new();
-                    for _ in 0..#array_length {
-                        #token_stream
-                    }
-                    let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Failed to cast to an array from Vec");
+            Ok(quote! {
+                let mut #ident = Vec::new();
+                for _ in 0..#array_length {
+                    #token_stream
                 }
-            } else {
-                quote! {
-                    let mut #ident_depth = Vec::new();
-                    for _ in 0..#array_length {
-                        #token_stream
-                    }
-                    let #ident_depth: [#array_element_type; #array_length] = #ident_depth.try_into().expect("Failed to cast to an array from Vec");
-                    #ident.push(#ident_depth);
-                }
-            };
-            Ok(result)
+                let #ident: [#array_element_type; #array_length] = #ident.try_into().expect("Failed to cast to an array from Vec");
+            })
         }
         Type::Path(_) => {
             let token_stream = quote! {
