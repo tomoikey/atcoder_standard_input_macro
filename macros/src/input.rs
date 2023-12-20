@@ -63,29 +63,25 @@ fn expand_array(ident: &Ident, type_array: TypeArray, depth: i8) -> anyhow::Resu
             Ok(result)
         }
         Type::Path(_) => {
+            let token_stream = quote! {
+                .trim()
+                .split(" ")
+                .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
+                .collect::<Vec<_>>()
+                .try_into()
+                .expect("Failed to cast to an array from Vec");
+            };
             let result = if depth == 0 {
                 quote! {
                     let mut #ident = String::new();
                     ::std::io::stdin().read_line(&mut #ident).expect("Failed to read");
-                    let #ident: [#array_element_type; #array_length] = #ident
-                        .trim()
-                        .split(" ")
-                        .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .expect("Failed to cast to an array from Vec");
+                    let #ident: [#array_element_type; #array_length] = #ident #token_stream
                 }
             } else {
                 quote! {
                     let mut input = String::new();
                     ::std::io::stdin().read_line(&mut input).expect("Failed to read");
-                    let input: [#array_element_type; #array_length] = input
-                        .trim()
-                        .split(" ")
-                        .map(|n| n.parse::<#array_element_type>().expect("Failed to cast"))
-                        .collect::<Vec<_>>()
-                        .try_into()
-                        .expect("Failed to cast to an array from Vec");
+                    let input: [#array_element_type; #array_length] = input #token_stream
                     #ident.push(input);
                 }
             };
